@@ -1,0 +1,761 @@
+
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+    <meta charset='utf-8' />
+    <title>SAI Sample Survey Map</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
+    <!-- Include Mapbox GL JS library -->
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.js'></script>
+    <!-- Include Mapbox GL JS CSS -->
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css' rel='stylesheet' />
+    <style>
+
+        /* CSS styles for the body, map, manual, log-box, buttons, and markers */
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        #manual {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            width: 20%;
+            max-height: 30%;
+            padding: 20px;
+            background-color: #fff;
+            overflow-y: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            font-family: sans-serif;
+            border: 1px solid #ccc;
+        }
+
+        #instructions {
+            position: absolute;
+            left: 30px;
+            top: calc(40% + 10px);
+            width: 20%;
+            bottom: 10%;
+            padding: 10px;
+            background-color: #fff;
+            overflow-y: scroll;
+            font-family: sans-serif;
+            font-size: 14px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border: 1px solid #ccc;
+        }
+
+        #log-box {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            width: 20%;
+            max-height: 30%;
+            padding: 20px;
+            background-color: #fff;
+            overflow-y: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            font-family: sans-serif;
+            border: 1px solid #ccc;
+        }
+
+        .popup-content {
+            max-height: 330px;
+            overflow-y: auto;
+        }
+
+
+        .popup-button {
+            background-color: #bbb8b8;
+            color: black;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+            font-family: sans-serif;
+        }
+
+        .popup-button:hover {
+            background-color: #0056b3;
+        }
+
+        .emoji-marker {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 30px;
+            height: 30px;
+            text-align: center;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #copy-button {
+            margin-top: 10px;
+            background-color: #bbb8b8;
+            color: black;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+            font-family: sans-serif;
+        }
+
+        #copy-button:hover {
+            background-color: #0056b3;
+        }
+
+        .popup-button, .instruction-button {
+            background-color: #bbb8b8;
+            color: black;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+            font-family: sans-serif;
+        }
+
+        .popup-button:hover, .instruction-button:hover {
+            background-color: #0056b3;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <!-- Map container -->
+    <div id='map'></div>
+    <!-- Manual div providing instructions to the user -->
+    <div id="manual">
+        <h3>Map Guide</h3>
+        <p>This map displays pre-set start and end points for your trip.</p>
+        <p>Look for the ⚡ symbol to find two available charging stations along your route.</p>
+        <p>Click on any station to view more details about it.</p>
+        <p>For navigation, simply click on any two points on the map to get the trip duration and route information.</p>
+    </div>
+
+
+    <!--<div id="instructions">
+        @@ -144,8 +144,8 @@ <h3>General Info</h3>
+             <p>Address of destination (red): 13551 Westpark Dr, Houston, TX 77082</p>
+             <p>Distance of destination: 28.8 Miles</p>
+             <p>Estimated travel time to destination: 40 minutes</p>
+             <p>State of charge of battery: 15% Charge</p>
+             <p>Range of current battery: 45 Minutes</p>
+         </div>-->
+
+    <!-- Instructions div displaying general information about the trip -->
+    <div id="instructions">
+        <h2>General Info</h2>
+    </div>    
+
+    <!-- Log box div displaying user actions and providing a button to copy logs -->
+    <div id="log-box">
+        <h3>Click Logs</h3>
+        <button id="copy-button">Copy Logs</button>
+    </div>
+    <script>
+        // Set the Mapbox access token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiaGdhem1laCIsImEiOiJjbGx5NzZpc3QwYWZtM2xwcjE3a2J5bjQxIn0.cpUto7a5fO9EgSY2LCjOSQ';
+        
+        // Initialize the map
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/navigation-day-v1',
+            center: [-77.99676458333334,34.157072603382474], //PLACE CENTER
+            zoom: 5 //SET ZOOM
+        });
+
+        // Define geographical bounds for the map
+        const bounds = [
+            [-78.59676458333334,33.857072603382474], //SET BOUNDS
+            [-77.39676458333334,34.457072603382474]  //SET BOUNDS
+        ];
+        map.setMaxBounds(bounds);
+
+        // Create and add markers for start and end points
+        const startMarker = new mapboxgl.Marker({ color: '#3887be' }).setLngLat([-122.662323, 45.523751]).addTo(map);
+        const endMarker = new mapboxgl.Marker({ color: '#f02' }).setLngLat([-122.663584, 45.523751]).addTo(map);
+
+        // Variables to store start and end points
+        let startPoint = null;
+        let endPoint = null;
+        let poiMarkers = [];
+
+        // Function to add a marker at a specific point on the map
+        // SET ALL INSTRUCTION INFO BELOW
+        const instructions = [ 
+            { title: "Current time", info: " " }, 
+            { title: "Address of origin", info: " " },
+            { title: "Address of destination", info: " " },
+            { title: "Distance of destination", info: " " },
+            { title: "Estimated travel time to destination", info: " " },
+            { title: "State of charge of battery", info: " " },
+            { title: "Range of current battery", info: " " }
+        ];
+
+
+        // Array to store charging station data
+        // SET BOTH SETS OF CHARGING STATION INFO BELOW
+        const chargingStations = [
+            {
+                coordinates: [-77.94703149802325,34.23717442920952],
+                imageUrl: 'https://photos.plugshare.com/photos/776276.jpg',
+                name: 'Wilmington 2nd Street Parking Deck',
+
+                location: '114 N 2nd St, Wilmington 28401',
+                originDistance: ' Miles',
+                originTime: ' Minutes',
+                destDistance: ' Miles ',
+                destTime: ' Minutes',
+
+                waitTime: 'No Wait',
+                plugs: 'J-1772 (2)',
+                chargeTime: ' Minutes',
+                socketAvalability: '1 Available, 1 In Use',
+
+                energySource: 'Grid',
+
+                fees: '$0.19/kWh to charge',
+                parking: 'Pay for Parking',
+
+                coffee: 'Yes',
+                grocery: 'No',
+                sportsClothes: 'Yes',
+                
+                rating: '⭐⭐⭐⭐⭐' 
+            },
+            {
+                coordinates: [-77.898494, 34.045617],
+                imageUrl: 'https://photos.plugshare.com/photos/1015612.jpg',
+                name: '1140 N Lake Park Parking Lot',
+
+                location: '1140 N Lake Park, Carolina Beach, NC 28428, USA',
+                originDistance: ' Miles',
+                originTime: ' Minutes',
+                destDistance: ' Miles ',
+                destTime: ' Minutes',
+
+                waitTime: 'No Wait',
+                plugs: 'J-1772 (3), CHAdeMO (1), CCS/SAE (1)',
+                chargeTime: ' Minutes',
+                socketAvalability: '4 Available, 1 In Use',
+
+                energySource: 'Grid',
+
+                fees: '$0.22 for $0.35/kWh or 0.45/kWh for 120KwH Charging',
+                parking: 'Free Parking',
+
+                coffee: 'No',
+                grocery: 'Yes',
+                sportsClothes: 'Yes',
+                
+                rating: '⭐⭐⭐⭐⭐'
+            }
+        ];
+
+        // Fixed points for emoji markers, charging stations, and POIs
+        const fixedPoint1 = {
+            lat: chargingStations[0].coordinates[1],
+            lng: chargingStations[0].coordinates[0],
+            emoji: '📍'
+        };
+        const fixedPoint2 = {
+            lat: chargingStations[1].coordinates[1],
+            lng: chargingStations[1].coordinates[0],
+            emoji: '📍'
+        };
+
+        // Function to log user actions in the log box
+        function logAction(action) {
+            const logBox = document.getElementById('log-box');
+            const timestamp = new Date().toLocaleTimeString();
+            logBox.innerHTML += `<p>[${timestamp}] ${action}</p>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        // Function to copy logs to the clipboard
+        function copyLogs() {
+            const logBox = document.getElementById('log-box');
+            const logs = Array.from(logBox.getElementsByTagName('p')).map(p => p.textContent).join('\n');
+            const textarea = document.createElement('textarea');
+            textarea.value = logs;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('Logs copied to clipboard');
+        }
+
+        // Add event listener to the copy button
+        document.getElementById('copy-button').addEventListener('click', copyLogs);
+
+        // Function to calculate the distance between two points using the Haversine formula
+        function haversineDistance(coords1, coords2) {
+            const R = 6371; // Radius of the Earth in kilometers
+            const dLat = (coords2[1] - coords1[1]) * Math.PI / 180;
+            const dLon = (coords2[0] - coords1[0]) * Math.PI / 180;
+            const a =
+                0.5 - Math.cos(dLat) / 2 +
+                Math.cos(coords1[1] * Math.PI / 180) * Math.cos(coords2[1] * Math.PI / 180) *
+                (1 - Math.cos(dLon)) / 2;
+            return R * 2 * Math.asin(Math.sqrt(a));
+        }
+
+        // Function to check if a point is within a buffer zone of a target point
+        function checkBufferZone(clickCoords, targetCoords, bufferRadius) {
+            const distance = haversineDistance(clickCoords, targetCoords);
+            return distance <= bufferRadius;
+        }
+
+        // Function to fetch and display the route between start and end points
+        /*
+        async function getRoute() {
+            if (!startPoint || !endPoint) return;
+
+            const query = await fetch(
+                `https://api.mapbox.com/directions/v5/mapbox/driving/${startPoint[0]},${startPoint[1]};${endPoint[0]},${endPoint[1]}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`,
+                { method: 'GET' }
+            );
+            const json = await query.json();
+            const data = json.routes[0];
+            const route = data.geometry.coordinates;
+            const geojson = {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                    type: 'LineString',
+                    coordinates: route
+                }
+            };
+
+            if (map.getSource('route')) {
+                map.getSource('route').setData(geojson);
+            } else {
+                map.addLayer({
+                    id: 'route',
+                    type: 'line',
+                    source: {
+                        type: 'geojson',
+                        data: geojson
+                    },
+                    layout: {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    paint: {
+                        'line-color': '#3887be',
+                        'line-width': 5,
+                        'line-opacity': 0.75
+                    }
+                });
+            }
+
+            const instructions = document.getElementById('instructions');
+            const steps = data.legs[0].steps;
+
+            let tripInstructions = '';
+            for (const step of steps) {
+                tripInstructions += `<li>${step.maneuver.instruction}</li>`;
+            }
+            instructions.innerHTML = `<p><strong>Trip duration: ${Math.floor(
+                data.duration / 60
+            )} min 🚗</strong></p><ol>${tripInstructions}</ol>`;
+            logAction(`Route calculated: ${data.legs[0].summary}`);
+        }
+        */
+
+        // Function to add an emoji marker at a specific point on the map
+        function addEmojiMarker(point) {
+            if (window.emojiMarker) {
+                window.emojiMarker.remove();
+            }
+            const el = document.createElement('div');
+            el.className = 'emoji-marker';
+            el.style.fontSize = '24px';
+            el.innerHTML = point.emoji;
+            const popup = new mapboxgl.Popup({ offset: 25 })
+                .setHTML(`<h4>Fixed Point Information</h4><p>This is a fixed point marked by an emoji 📍 on the map.</p>`);
+            window.emojiMarker = new mapboxgl.Marker({ element: el })
+                .setLngLat([point.lng, point.lat])
+                .setPopup(popup)
+                .addTo(map);
+            window.emojiMarker.getPopup().open();
+            logAction(`Emoji marker added at: ${point.lng}, ${point.lat}`);
+        }
+
+        // Function to add an emoji marker with feedback at a specific point on the map
+        function addEmojiMarkerWithFeedback(point, stationName, plugs, encodedImageUrl, buttonElement, poi_type) {
+            const poi_emoji = poi_type === 'restaurant' ? '🍴' : '🛒';
+            addPOIs(poi_type, '🍴', point.lat, point.lng, stationName);
+
+            const newPopupContent = `
+                <p>Nearby ${poi_type}s added to the map! ${poi_emoji}</p>
+            `;
+
+            if (window.currentPopup) {
+                window.currentPopup.remove();
+            }
+            const el = buttonElement.closest('.mapboxgl-popup');
+            if (el) {
+                const coordinates = new mapboxgl.LngLat(point.lng, point.lat);
+                const newPopup = new mapboxgl.Popup({ offset: 25, closeOnClick: false })
+                    .setLngLat(coordinates)
+                    .setHTML(newPopupContent)
+                    .addTo(map);
+                window.currentPopup = newPopup;
+            }
+            logAction(`Nearby ${poi_type}s added for ${stationName}`);
+        }
+
+        // Function to add charging stations to the map
+        function addChargingStations() {
+            chargingStations.forEach(station => {
+                const el = document.createElement('div');
+                el.className = 'marker';
+                el.innerHTML = '⚡';
+                el.style.fontSize = '32px';
+
+                const popupContent = generatePopupContent(station);
+
+                new mapboxgl.Marker({ element: el })
+                    .setLngLat(station.coordinates)
+                    .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent))
+                    .addTo(map)
+                    .on('click', () => {
+                        logAction(`Charging station clicked: ${station.name}`);
+                    });
+            });
+        }
+
+        // Function to generate popup content for charging stations
+        function generatePopupContent(station) {
+            const encodedImageUrl = encodeURIComponent(station.imageUrl);
+            return `
+                <div class="popup-content">
+                    <h3 style="font-size: 20px; margin-top: 0; margin-bottom: 10px;">${station.name}</h3>
+                    <img src="${decodeURIComponent(encodedImageUrl)}" alt="${station.name}" style="width:100%;max-width:300px;">
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'location', '${station.location}')">Location</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'originDistance', '${station.originDistance}')">Distance from Start</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'originTime', '${station.originTime}')">Travel Time from Start</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'destDistance', '${station.destDistance}')">Distance to Destination</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'destTime', '${station.destTime}')">Travel Time to Destination</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'waitTime', '${station.waitTime}')">Wait Time</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'plugs', '${station.plugs}')">Plugs</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'chargeTime', '${station.chargeTime}')">Charge Time</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'socketAvalability', '${station.socketAvalability}')">Socket Availability</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'energySource', '${station.energySource}')">Energy Source</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'fees', '${station.fees}')">Fees</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'parking', '${station.parking}')">Parking</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'coffee', '${station.coffee}')">Coffee Shop</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'grocery', '${station.grocery}')">Grocery Store</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'sportsClothes', '${station.sportsClothes}')">Sport/Clothing Store</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'rating', '${station.rating}')">Rating</button>
+                </div>
+                `;
+        }
+
+        // Function to show more information about a charging station
+        function showMoreInfo(stationName, infoType, infoContent) {
+            logAction(`Button clicked: ${infoType} for ${stationName}`);
+
+            const content = `<p style="font-size: 16px; padding: 5px;">${infoContent}</p>`;
+
+            const popups = document.getElementsByClassName('mapboxgl-popup-content');
+            if (popups.length > 0) {
+                popups[0].innerHTML = `
+                    <div style="max-height: 500px; max-width: 400px; padding: 10px;">
+                        <h3 style="font-size: 20px; margin-top: 0; margin-bottom: 10px;">${stationName}</h3>
+                        ${content}
+                        <button class="popup-button" style="font-size: 18px; padding: 10px 20px;" onclick="restoreOriginalContent('${stationName}')">Back</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Function to restore the original content of the popup
+        function restoreOriginalContent(stationName) {
+            const station = chargingStations.find(station => station.name === stationName);
+            const popups = document.getElementsByClassName('mapboxgl-popup-content');
+            if (popups.length > 0) {
+                popups[0].innerHTML = generatePopupContent(station);
+            }
+            logAction(`Back button clicked for ${stationName}`);
+        }
+
+        // Function to create instruction buttons
+        function createInstructionButtons() {
+            const instructionsDiv = document.getElementById('instructions');
+            
+            instructions.forEach((instruction, index) => {
+                const button = document.createElement('button');
+                button.className = 'instruction-button';
+                button.textContent = instruction.title;
+                button.style.fontSize = '16px';
+                button.style.padding = '10px';
+                button.style.margin = '5px';
+                button.style.width = '100%';
+                button.onclick = () => showInstructionInfo(index);
+                instructionsDiv.appendChild(button);
+            });
+        }
+
+        // Function to show instruction information using the Map Guide popup
+        function showInstructionInfo(index) {
+            const instruction = instructions[index];
+            logAction(`Button clicked: ${instruction.title}`);
+
+            const content = `<p style="font-size: 16px; padding: 5px;">${instruction.info}</p>`;
+
+            const manualDiv = document.getElementById('manual');
+            if (manualDiv) {
+                manualDiv.innerHTML = `
+                    <h3 style="font-size: 20px; margin-top: 0; margin-bottom: 10px;">${instruction.title}</h3>
+                    ${content}
+                    <button class="popup-button" style="font-size: 18px; padding: 10px 20px;" onclick="handleBackButtonClick('${instruction.title}')">Back</button>
+                `;
+            }
+        }
+
+        // Function to handle the back button click in the Map Guide popup
+        function handleBackButtonClick(title) {
+            logAction(`Back button clicked for ${title}`);
+            restoreMapGuide();
+        }
+
+        // Function to restore the original Map Guide content
+        function restoreMapGuide() {
+            const manualDiv = document.getElementById('manual');
+            if (manualDiv) {
+                manualDiv.innerHTML = `
+                    <h3>Map Guide</h3>
+                    <p>This map displays pre-set start and end points for your trip.</p>
+                    <p>Look for the ⚡ symbol to find two available charging stations along your route.</p>
+                    <p>Click on any station to view more details about it.</p>
+                    <p>For navigation, simply click on any two points on the map to get the trip duration and route information.</p>
+                `;
+            }
+
+        }
+
+        // Call the function to create buttons when the page loads
+        createInstructionButtons();
+
+        // Function to fetch and display the time between two points
+        async function getTime(startPoint, endPoint) {
+            if (!startPoint || !endPoint) return;
+
+            const query = await fetch(
+                `https://api.mapbox.com/directions/v5/mapbox/driving/${startPoint.lng},${startPoint.lat};${endPoint.lng},${endPoint.lat}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`,
+                { method: 'GET' }
+            );
+            const json = await query.json();
+            const data = json.routes[0];
+            return Math.floor(data.duration / 60);
+        }
+
+        // Function to add points of interest (POIs) to the map
+        async function addPOIs(searchTerm, emoji, latitude, longitude, station_name) {
+            logAction(`Adding POIs for ${station_name} - ${searchTerm}`);
+
+            const startPoint = { lat: latitude, lng: longitude };
+
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchTerm)}.json?type=poi&proximity=${longitude},${latitude}&access_token=${mapboxgl.accessToken}`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            for (const feature of data.features) {
+                const [lng, lat] = feature.geometry.coordinates;
+                const endPoint = { lat, lng };
+
+                const duration = await getTime(startPoint, endPoint);
+
+                const el = document.createElement('div');
+                el.innerHTML = emoji;
+                el.style.fontSize = '24px';
+
+                const marker = new mapboxgl.Marker({ element: el })
+                    .setLngLat([lng, lat])
+                    .setPopup(new mapboxgl.Popup({ offset: 25 })
+                        .setHTML(`<h3>${feature.text}</h3><p>${feature.place_name}</p>
+                        <h4>Travel time to ${station_name}: ${duration} min</h4>`))
+                    .addTo(map)
+                    .on('click', () => {
+                        logAction(`POI clicked: ${feature.text}`);
+                    });
+
+                poiMarkers.push({ marker, coordinates: [lng, lat], logMessage: `Clicked within buffer zone of POI: ${feature.text}` });
+            }
+        }
+
+        // Define sources for start and end points
+        // SET START AND END POINTS BELOW
+        const pointSource = {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: [
+                    {
+                        type: 'Feature',
+                        properties: {
+                            title: 'Start'
+                        },
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [-78.1563,34.2850226]
+                        }
+                    }
+                ]
+            }
+        };
+
+        const endpointsource = {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: [
+                    {
+                        type: 'Feature',
+                        properties: {
+                            title: 'End'
+                        },
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [-77.898099,34.01852]
+                        }
+                    }
+                ]
+            }
+        };
+
+        // Add event listeners to the map after it has loaded
+        map.on('load', () => {
+            // Event listener for map clicks
+            map.on('click', (event) => {
+                const clickCoords = [event.lngLat.lng, event.lngLat.lat];
+                logAction(`Map clicked at coordinates: ${clickCoords}`);
+
+                const bufferRadius = 0.1; // Buffer radius in kilometers
+
+                if (checkBufferZone(clickCoords, [-122.662323, 45.523751], bufferRadius)) {
+                    logAction(`Clicked within buffer zone of start point`);
+                }
+                if (checkBufferZone(clickCoords, [-122.59626181271541, 45.56511868081539], bufferRadius)) {
+                    logAction(`Clicked within buffer zone of end point`);
+                }
+
+                chargingStations.forEach(station => {
+                    if (checkBufferZone(clickCoords, station.coordinates, bufferRadius)) {
+                        logAction(`Clicked within buffer zone of ${station.name}`);
+                    }
+                });
+
+                // poiMarkers.forEach(poi => {
+                //     if (checkBufferZone(clickCoords, poi.coordinates, bufferRadius)) {
+                //         logAction(poi.logMessage);
+                //     }
+                // });
+
+                // if (!startPoint) {
+                //     startPoint = clickCoords;
+                //     startMarker.setLngLat(clickCoords);
+                //     logAction(`Start point set at: ${clickCoords}`);
+                // } else {
+                //     endPoint = clickCoords;
+                //     endMarker.setLngLat(clickCoords);
+                //     logAction(`End point set at: ${clickCoords}`);
+                //     getRoute();
+
+                //     startPoint = null;
+                //     endPoint = null;
+                // }
+            });
+
+            // Event listener for start marker clicks
+            startMarker.getElement().addEventListener('click', () => {
+                logAction(`Start marker clicked at: ${startMarker.getLngLat()}`);
+            });
+
+            // Event listener for end marker clicks
+            endMarker.getElement().addEventListener('click', () => {
+                logAction(`End marker clicked at: ${endMarker.getLngLat()}`);
+            });
+
+            // Add charging stations to the map
+            addChargingStations();
+
+
+            // Add layers for start and end points
+            map.addLayer({
+                id: 'point',
+                type: 'circle',
+                source: pointSource,
+                paint: {
+                    'circle-radius': 15,
+                    'circle-color': '#3887be'
+                }
+            });
+            map.addLayer({
+                id: 'point-label',
+                type: 'symbol',
+                source: pointSource,
+                layout: {
+                    'text-field': '{title}',
+                    'text-size': 24,
+                    'text-anchor': 'left',
+                    'text-offset': [0.8, 0]
+                },
+                paint: {
+                    'text-color': 'black'
+                }
+            });
+
+            map.addLayer({
+                id: 'endpoint',
+                type: 'circle',
+                source: endpointsource,
+                paint: {
+                    'circle-radius': 15,
+                    'circle-color': '#f02'
+                }
+            });
+            map.addLayer({
+                id: 'endpoint-label',
+                type: 'symbol',
+                source: endpointsource,
+                layout: {
+                    'text-field': '{title}',
+                    'text-size': 24,
+                    'text-anchor': 'left',
+                    'text-offset': [0.8, 0]
+                },
+                paint: {
+                    'text-color': 'black'
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
