@@ -159,13 +159,6 @@
     <!-- SET ALL INSTRUCTION INFO BELOW -->
     <div id="instructions">
         <h3>General Info</h3>
-            <p>Current time: </p>
-            <p>Address of origin: </p>
-            <p>Address of destination: </p>
-            <p>Distance of destination: </p>
-            <p>Estimated travel time to destination: </p>
-            <p>State of charge of battery: </p>
-            <p>Range of current battery: </p>
     </div>
 
     <!-- Instructions div displaying general information about the trip -->
@@ -567,18 +560,57 @@
         createInstructionButtons();
         */
 
-        // Function to fetch and display the time between two points
-        async function getTime(startPoint, endPoint) {
-            if (!startPoint || !endPoint) return;
+        // Function to get the time to travel between two points
+        async function getRouteDetails(startPoint, endPoint) {
+            if (!startPoint || !endPoint) return null;
 
             const query = await fetch(
                 `https://api.mapbox.com/directions/v5/mapbox/driving/${startPoint.lng},${startPoint.lat};${endPoint.lng},${endPoint.lat}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`,
                 { method: 'GET' }
             );
             const json = await query.json();
-            const data = json.routes[0];
-            return Math.floor(data.duration / 60);
+            console.log(json); // Log the full response to inspect it
+            if (!json.routes || json.routes.length === 0) {
+                console.error('No route data available');
+                return { time: 0, distance: 0 }; // Return default values in case of no route data
+            }
+            const route = json.routes[0];
+            return {
+                time: Math.floor(route.duration / 60),  // duration in minutes
+                distance: (route.distance / 1000 * 0.621371)  // convert distance from km to miles
+            };
         }
+      
+        // Function to get the time to travel between two points
+        async function updateChargingStationDetails() {
+            // Extract startPoint and endPoint from the source data
+            const startPoint = {
+                lng: pointSource.data.features[0].geometry.coordinates[0],
+                lat: pointSource.data.features[0].geometry.coordinates[1]
+            };
+            const endPoint = {
+                lng: endpointsource.data.features[0].geometry.coordinates[0],
+                lat: endpointsource.data.features[0].geometry.coordinates[1]
+            };
+
+            for (const station of chargingStations) {
+                const stationPoint = { lat: station.coordinates[1], lng: station.coordinates[0] };
+
+                // Fetch origin to charging station details
+                const originToStation = await getRouteDetails(startPoint, stationPoint);
+                station.originDistance = `${originToStation.distance.toFixed(2)} Miles`;
+                station.originTime = `${originToStation.time} Minutes`;
+
+                // Fetch charging station to destination details
+                const stationToDest = await getRouteDetails(stationPoint, endPoint);
+                station.destDistance = `${stationToDest.distance.toFixed(2)} Miles`;
+                station.destTime = `${stationToDest.time} Minutes`;
+
+                console.log(`Updated station ${station.name} with distance ${station.originDistance} and ${station.destDistance}`);
+            }
+
+        }
+
 
         // Function to add points of interest (POIs) to the map
         async function addPOIs(searchTerm, emoji, latitude, longitude, station_name) {
@@ -612,6 +644,33 @@
 
                 poiMarkers.push({ marker, coordinates: [lng, lat], logMessage: `Clicked within buffer zone of POI: ${feature.text}` });
             }
+        }
+
+        // Function to update route instructions based on the start and end points
+        async function updateRouteInstructions() {
+            const startPoint = {
+                lng: pointSource.data.features[0].geometry.coordinates[0],
+                lat: pointSource.data.features[0].geometry.coordinates[1]
+            };
+
+            const endPoint = {
+                lng: endpointsource.data.features[0].geometry.coordinates[0],
+                lat: endpointsource.data.features[0].geometry.coordinates[1]
+            };
+
+            const routeDetails = await getRouteDetails(startPoint, endPoint);
+
+            // Assuming you have elements with IDs or you can set them in your HTML
+            document.querySelector('#instructions').innerHTML = `
+                <h3>General Info</h3>
+                <p>Current time: </p>
+                <p>Address of origin: </p>
+                <p>Address of destination: </p>
+                <p>Distance of destination: ${routeDetails.distance.toFixed(2)} Miles</p>
+                <p>Estimated travel time to destination: ${routeDetails.time} Minutes</p>
+                <p>State of charge of battery: </p>
+                <p>Range of current battery: </p>
+            `;
         }
 
         // Define sources for start and end points
@@ -653,6 +712,13 @@
                 ]
             }
         };
+
+        // Add route time/distance to instructions & update charging station details
+        map.on('load', async () => {
+            await updateRouteInstructions();  // Ensure this is awaited properly
+            await updateChargingStationDetails();  // Ensure this is awaited properly
+            addChargingStations();  // You might need to re-add stations to reflect updated data
+        });
 
         // Add event listeners to the map after it has loaded
         map.on('load', () => {
