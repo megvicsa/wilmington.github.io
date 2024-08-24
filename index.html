@@ -528,7 +528,7 @@
             return `
                     <h3 style="font-size: 20px; margin-top: 0; margin-bottom: 10px;">${station.name}</h3>
                     <img src="${decodeURIComponent(encodedImageUrl)}" alt="${station.name}" style="width:100%;max-width:300px;">
-                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'location', '<b>Location:</b> <br> ${station.location}', '${boxId}')">Location</button>
+                    <button class="popup-button" onclick="showMoreInfo('${station.name}', 'location', '<b>Location:</b> <br> ${station.location}.', '${boxId}')">Location</button>
                     <button class="popup-button" onclick="showMoreInfo('${station.name}', 'originDistance', '<b>Distance from my location:</b> ${station.originDistance} miles. <br><br>The distance from your location to ${station.name.toLowerCase()} is ${station.originDistance} miles.', '${boxId}')">Distance from my Location</button>
                     <button class="popup-button" onclick="showMoreInfo('${station.name}', 'originTime', '<b>Travel time from my location:</b> ${station.originTime} minutes. <br><br>The estimated travel time from your location to ${station.name.toLowerCase()} is ${station.originTime} minutes.', '${boxId}')">Travel Time from my Location</button>
                     <button class="popup-button" onclick="showMoreInfo('${station.name}', 'destDistance', '<b>Distance to destination:</b> ${station.destDistance} miles. <br><br>The distance from ${station.name.toLowerCase()} to the destination is ${station.destDistance} miles.', '${boxId}')">Distance to Destination</button>
