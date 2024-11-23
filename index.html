@@ -9,6 +9,8 @@
     <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.js'></script>
     <!-- Include Mapbox GL JS CSS -->
     <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css' rel='stylesheet' />
+    <!-- Adding charging station icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
 
         /* CSS styles for the body, map, manual, log-box, buttons, and markers */
@@ -63,12 +65,12 @@
             width: 20%;
             max-height: 30%;
             padding: 20px;
-            background-color: #fff;
+            background-color: #f1f0ef;
             overflow-y: auto;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             font-family: sans-serif;
-            border: 1px solid #ccc;
+            border: 1px solid #f1f0ef;
         }
 
         .info-box {
@@ -76,12 +78,12 @@
             width: 200px;
             max-height: 40%;
             padding: 20px;
-            background-color: #fff;
+            background-color: #f1f0ef;
             overflow-y: auto;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             font-family: sans-serif;
-            border: 1px solid #ccc;
+            border: 1px solid #f1f0ef;
             display: none; /* Initially hidden */
         }
 
@@ -95,7 +97,7 @@
         #bottom-left-info {
             bottom: 20px;
             right: 20px;
-            background-color: #a5a5a5;
+            background-color: #c8c8c8;
         }
 
         .stars {
@@ -137,9 +139,9 @@
         }
 
         .popup-button, .instruction-button {
-            background-color: #dddddd;
+            background-color: #f1f0ef;
             color: black;
-            border: none;
+            border: 1px solid black;
             padding: 8px 16px;
             margin: 5px;
             border-radius: 5px;
@@ -496,21 +498,42 @@
 
         let flag = 1;
 
+        // Array to store existing markers for clearing later
+        let markers = [];
+
         // Function to add charging stations to the map
         function addChargingStations() {
             chargingStations.forEach(station => {
                 const el = document.createElement('div');
                 el.className = 'marker';
-                if (flag){
-                    el.innerHTML = '⚡';
-                    flag = 0;
-                } else {
-                    el.innerHTML = '🔌';
-                    flag = 1;
-                }
-                el.style.fontSize = '32px';
+                el.style.display = 'flex';
+                el.style.flexDirection = 'column';
+                el.style.alignItems = 'center';
 
-                new mapboxgl.Marker({ element: el })
+                // Create an icon element
+                const icon = document.createElement('i');
+                icon.className = 'fa-solid fa-charging-station';
+                icon.style.fontSize = '40px';  // Set icon size
+                icon.style.color = flag ? '#9B7A01' : '#303030'; // Toggle color
+                flag = !flag;
+                el.appendChild(icon);
+
+                // Create a label element for the charging station name
+                const label = document.createElement('div');
+                label.innerText = station.name; // Ensure each station has a `name` property
+                label.style.fontSize = '14px';
+                label.style.color = '#ffffff';
+                label.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                label.style.padding = '4px 8px';
+                label.style.borderRadius = '4px';
+                label.style.marginTop = '4px'; // Space between icon and label
+                label.style.textAlign = 'center';
+
+                // Append label below the icon
+                el.appendChild(label);
+
+                // Add marker to the map with icon centered on the location
+                new mapboxgl.Marker({ element: el, anchor: 'center' })
                     .setLngLat(station.coordinates)
                     .addTo(map);
             });
@@ -936,7 +959,7 @@
                 logData(`Map Clicked`, null, null, clickCoords, mapNum);
                 console.log(`Map clicked at: ${clickCoords}`);
 
-                const bufferRadius = 1.2; // Buffer radius in kilometers
+                const bufferRadius = 2.4; // Buffer radius in kilometers
 
                 if(!checkBufferZone(clickCoords, chargingStations[0].coordinates, bufferRadius) && !checkBufferZone(clickCoords, chargingStations[1].coordinates, bufferRadius)) {
                     removeRoutes();
